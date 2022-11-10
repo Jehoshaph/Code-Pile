@@ -4,7 +4,7 @@ UseNet specific mailbox processing
 
 
 from .classes import Thread, Message
-from .utils import process_raw_message, discard_message, get_author_username
+from .utils import process_raw_message, discard_message, get_author_username, discard_spam
 
 from datetime import datetime
 import mailbox
@@ -17,7 +17,7 @@ def mbox_utf_reader(stream):
     return mailbox.mboxMessage(text)
 
 
-def process_forum(mbox_file):
+def process_forum(mbox_file, **kwargs):
     """
     Processes a mbox_file and returns a list of classes.
 
@@ -27,6 +27,9 @@ def process_forum(mbox_file):
     as well as the same thread might have multiple ids
     From in the first line (i.e. From <str>) is not consistent
     From: in the message body (i.e. From: Name (abc@xyz.com)) is consistent
+
+    :param mbox_file: .mbox file
+    :param kwargs: spam_automaton -> To discard spam messages
     """
     # mbox = mailbox.mbox(mbox_file)
     mbox = mailbox.mbox(mbox_file, factory=mbox_utf_reader)
@@ -50,6 +53,9 @@ def process_forum(mbox_file):
         if not body:
             continue
 
+        if kwargs.get('spam_automaton'):
+            if discard_spam(body, automaton=kwargs['spam_automaton']):
+                continue
         body = process_raw_message(body)
         if discard_message(body):
             continue

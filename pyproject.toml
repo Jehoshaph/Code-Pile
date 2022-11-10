@@ -21,7 +21,8 @@ dependencies = [
     "pandas",
     "pyarrow",
     "lxml",
-    "pyspark"
+    "pyspark",
+    "pyahocorasick"
 ]
 
 [tool.pytest.ini_options]

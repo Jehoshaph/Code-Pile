@@ -4,6 +4,7 @@ A mix of UseNet specific and generally useful pre-processing and cleanup scripts
 
 
 import re
+import ahocorasick
 
 
 def discard_message(message, min_length=100, max_length=10000):
@@ -12,6 +13,18 @@ def discard_message(message, min_length=100, max_length=10000):
     """
     message_length = len(message)
     return message_length < min_length or message_length > max_length
+
+
+def discard_spam(message, automaton):
+    """
+    Courtesy https://pastebin.com/Lmz3bxDH
+    """
+    if message.count(',') >= 100 or message.count('\n.\n') > 10:
+        return True
+    for _ in automaton.iter(message.lower()):
+        return True
+
+    return False
 
 
 def process_raw_message(body, remove_empty_lines=True, remove_author_lines=True):
@@ -38,6 +51,8 @@ def process_raw_message(body, remove_empty_lines=True, remove_author_lines=True)
 
     # Using a simplified email regex that is also fairly performant
     body = re.sub(r'[\w.+-]+@[\w-]+\.[\w.-]+', '<email_address>', body)
+    # Sometimes the email is surrounded with angled brackets
+    body = body.replace('<<email_address>>', '<email_address>')
 
     body = re.sub(r'(http:|https:|www\.)\S*', '<url>', body)
 
@@ -59,6 +74,8 @@ def process_raw_message(body, remove_empty_lines=True, remove_author_lines=True)
             line_l = line.lower()
             if remove_author_lines:
                 if line_l.endswith(' wrote:') or line_l.endswith(' said:') or line_l.endswith(' said :'):
+                    continue
+                if line_l.endswith(' wrote in message'):
                     continue
                 if 'in article ' in line_l:
                     continue
@@ -121,3 +138,17 @@ def get_author_username(author_string):
     username = username.split('AT')[0]
 
     return re.sub(r'\W+', '', username)
+
+
+def get_bad_strings_automaton(bad_strings_file):
+    """
+    Courtesy https://pastebin.com/Lmz3bxDH
+    :param bad_strings_file: File with list of spam examples
+    """
+    bad_strings = open(bad_strings_file).read().split('\n')
+    bad_strings = [bad_string for bad_string in bad_strings if bad_string.strip()]
+    bad_strings_automaton = ahocorasick.Automaton()
+    for i, bad_string in enumerate(bad_strings):
+        bad_strings_automaton.add_word(bad_string.lower(), i)
+    bad_strings_automaton.make_automaton()
+    return bad_strings_automaton
